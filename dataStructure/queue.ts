@@ -10,12 +10,21 @@ export class Node<T> {
     }
 }
 
-export class Queue<T> {
+export class QueueEvent extends Event {
+    public detail?: unknown
+    constructor (name: string, detail: unknown) {
+        super(name)
+        this.detail = detail
+    }
+}
+
+export class Queue<T> extends EventTarget {
     public first: Node<T> | null
     public last: Node<T> | null
     public size: number;
 
     constructor() {
+        super();
         this.first = null;
         this.last = null;
         this.size = 0;
@@ -33,8 +42,8 @@ export class Queue<T> {
                 this.last.next = newNode;
                 this.last = newNode;
             }
-
         }
+        this.dispatchEvent(new QueueEvent('enqueue', { detail: val }));
         return ++this.size
     }
 
@@ -54,7 +63,28 @@ export class Queue<T> {
             this.last = null;
         }
 
+        this.dispatchEvent(new QueueEvent('dequeue', { detail: oldFirst }));
         return oldFirst;
     }
 }
 
+const queue = new Queue();
+
+queue.addEventListener('enqueue', (_event: QueueEvent) => {
+    // event가 실행됩니다.
+    console.log('inqueue event')
+    console.dir(_event)
+});
+
+queue.addEventListener('dequeue', () => {
+    // event가 실행됩니다.
+    // console.log('dequeue event')
+});
+
+queue.enqueue('Item 1');
+queue.enqueue('Item 2');
+queue.enqueue('Item 3');
+
+console.log(queue.dequeue());
+console.log(queue.dequeue());
+console.log(queue.dequeue());
