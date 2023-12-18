@@ -21,8 +21,6 @@ export class SingleLinkedList<T> {
         this.length = 0;
     }
 
-
-
     public push(val: T) {
         const newNode = new Node(val);
         if(!this.length) {
@@ -30,7 +28,7 @@ export class SingleLinkedList<T> {
             this.tail = newNode;
         }
 
-        if(ValidateUtil.isNotNull<Node<T>>((this.tail))){
+        if(ValidateUtil.isNotNull<Node<T>>(this.tail)){
             this.tail.next = this.tail;
             this.tail = newNode;
         }
@@ -38,4 +36,10 @@ export class SingleLinkedList<T> {
         this.length++
         return newNode;
     }
+
+    // public pop() {
+    //     if(!(this.tail && this.head)) return null;
+    //     const current = this.head;
+    //     const oldTail = current
+    // }
 }
