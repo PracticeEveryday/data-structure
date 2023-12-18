@@ -1,4 +1,4 @@
-import {ValidateUtil} from "../utils/validate.util";
+import { ValidateUtil } from "../utils/validate.util";
 
 export class Node<T> {
     public value: T;
@@ -10,12 +10,21 @@ export class Node<T> {
     }
 }
 
-export class Queue<T> {
+export class QueueEvent extends Event {
+    public detail?: unknown
+    constructor (name: string, detail: unknown) {
+        super(name)
+        this.detail = detail
+    }
+}
+
+export class EventQueue<T> extends EventTarget {
     public first: Node<T> | null
     public last: Node<T> | null
     public size: number;
 
     constructor() {
+        super();
         this.first = null;
         this.last = null;
         this.size = 0;
@@ -34,7 +43,7 @@ export class Queue<T> {
                 this.last = newNode;
             }
         }
-
+        this.dispatchEvent(new QueueEvent('enqueue', { detail: val }));
         return ++this.size
     }
 
@@ -54,6 +63,28 @@ export class Queue<T> {
             this.last = null;
         }
 
+        this.dispatchEvent(new QueueEvent('dequeue', { detail: oldFirst }));
         return oldFirst;
     }
 }
+
+const eventQueue = new EventQueue();
+
+eventQueue.addEventListener('enqueue', (_event: QueueEvent) => {
+    // event가 실행됩니다.
+    console.log('inqueue event')
+    console.dir(_event)
+});
+
+eventQueue.addEventListener('dequeue', () => {
+    // event가 실행됩니다.
+    // console.log('dequeue event')
+});
+
+eventQueue.enqueue('Item 1');
+eventQueue.enqueue('Item 2');
+eventQueue.enqueue('Item 3');
+
+console.log(eventQueue.dequeue());
+console.log(eventQueue.dequeue());
+console.log(eventQueue.dequeue());
