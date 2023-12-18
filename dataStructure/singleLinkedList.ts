@@ -1,3 +1,5 @@
+import { ValidateUtil } from "../utils/validate.util";
+
 export class Node<T> {
     public  value: T;
     public next: Node<T> | null;
@@ -7,6 +9,7 @@ export class Node<T> {
         this.next = null;
     }
 }
+
 export class SingleLinkedList<T> {
     public head: Node<T> | null
     public tail: Node<T> | null
@@ -18,13 +21,16 @@ export class SingleLinkedList<T> {
         this.length = 0;
     }
 
+
+
     public push(val: T) {
         const newNode = new Node(val);
         if(!this.length) {
             this.head = newNode;
             this.tail = newNode;
-        } else {
-            if(!this.tail) return undefined;
+        }
+
+        if(ValidateUtil.isNotNull<Node<T>>((this.tail))){
             this.tail.next = this.tail;
             this.tail = newNode;
         }
