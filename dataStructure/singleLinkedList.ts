@@ -29,7 +29,7 @@ export class SingleLinkedList<T> {
         }
 
         if(ValidateUtil.isNotNull<Node<T>>(this.tail)){
-            this.tail.next = this.tail;
+            this.tail.next = newNode;
             this.tail = newNode;
         }
 
@@ -37,9 +37,29 @@ export class SingleLinkedList<T> {
         return newNode;
     }
 
-    // public pop() {
-    //     if(!(this.tail && this.head)) return null;
-    //     const current = this.head;
-    //     const oldTail = current
-    // }
-}
+    public pop() {
+        // 둘다 값이 없으면 null
+        if(!(this.tail && this.head)) return null;
+
+        // 값이 있다면
+        let current = this.head;
+        let newTail = current;
+
+        while (current.next) {
+            console.log(current);
+            newTail = current;
+            current = current.next;
+        }
+
+        this.tail = newTail;
+        this.tail.next = null;
+
+        this.length--;
+
+        if(this.length === 0) {
+            this.head = null;
+            this.tail = null;
+        }
+        return current;
+    }
+};
