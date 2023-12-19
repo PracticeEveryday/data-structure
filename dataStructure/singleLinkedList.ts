@@ -19,7 +19,7 @@ export class SingleLinkedList<T> {
         this.length = 0;
     }
 
-    public push(val: T) {
+    public push(val: T): Node<T> | null {
         const newNode = new Node(val);
         if(!(this.tail && this.head)) {
             this.head = newNode;
@@ -33,7 +33,7 @@ export class SingleLinkedList<T> {
         return newNode;
     }
 
-    public pop() {
+    public pop(): Node<T> | null {
         if(!(this.tail && this.head)) return null;
 
         let current = this.head;
@@ -56,7 +56,7 @@ export class SingleLinkedList<T> {
         return current;
     }
 
-    public shift() {
+    public shift(): Node<T> | null {
         if(!(this.tail && this.head)) return null;
 
         const oldFirst = this.head;
@@ -68,7 +68,7 @@ export class SingleLinkedList<T> {
         return oldFirst
     }
 
-    public unshift(val: T) {
+    public unshift(val: T): Node<T> | null {
         const newNode = new Node(val)
         if(!(this.tail && this.head)) {
             this.head = newNode;
@@ -82,7 +82,7 @@ export class SingleLinkedList<T> {
         return newNode;
     }
 
-    public search(idx: number) {
+    public search(idx: number): Node<T> | null {
         if(idx < 0) return null;
         if(idx >= this.length) return null;
         if(!(this.tail && this.head)) return null;

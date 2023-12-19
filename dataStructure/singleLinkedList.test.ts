@@ -98,5 +98,4 @@ describe('단인 연결 리스트 search Method', function () {
     expect(singleList.search(2)?.value).toBe(3);
     expect(singleList.search(3)?.value).toBe(4);
     expect(singleList.search(5)).toBe(null);
-
 });
