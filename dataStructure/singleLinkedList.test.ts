@@ -8,6 +8,7 @@ describe('단일 연결 리스트 push Method',  () => {
         expect(singleList.head?.value === singleList.tail?.value).toBe(true);
         expect(singleList.head?.value).toBe(1);
         expect(singleList.tail?.value).toBe(1);
+        expect(singleList.tail?.next).toBe(null);
         expect(singleList.length).toBe(1);
     });
 
@@ -18,6 +19,8 @@ describe('단일 연결 리스트 push Method',  () => {
 
         expect(singleList.head?.value).toBe(1);
         expect(singleList.tail?.value).toBe(2);
+        expect(singleList.tail?.next).toBe(null);
+        expect(singleList.head === singleList.tail).toBe(false);
         expect(singleList.length).toBe(2);
     });
 });
@@ -52,6 +55,32 @@ describe('단인 연결 리스트 shift Method', () => {
         singleList.push(2);
 
         expect(singleList.shift()?.value).toBe(1);
+        expect(singleList.length).toBe(1);        
+    })
+});
+
+
+describe('단인 연결 리스트 unshift Method', function () {
+    test("최초로 노드가 생성될 경우 head와 tail은 동일한 노드를 바라본다.", () => {
+        const singleList = new SingleLinkedList<number>();
+        singleList.unshift(1);
+
+        expect(singleList.head?.value).toBe(1);
+        expect(singleList.tail?.value).toBe(1);
+        expect(singleList.head === singleList.tail).toBe(true);
         expect(singleList.length).toBe(1);
+    })
+
+    test("unshift는 노드의 제일 앞 부분에 삽입된다.", () => {
+        const singleList = new SingleLinkedList<number>();
+        singleList.unshift(1);
+        singleList.unshift(2);
+
+        expect(singleList.head?.value).toBe(2);
+        expect(singleList.head?.next?.value).toBe(1);
+        expect(singleList.tail?.value).toBe(1);
+        expect(singleList.tail?.next).toBe(null);
+        expect(singleList.length).toBe(2);
+
     })
 });

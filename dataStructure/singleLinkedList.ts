@@ -1,5 +1,3 @@
-import { ValidateUtil } from "../utils/validate.util";
-
 export class Node<T> {
     public  value: T;
     public next: Node<T> | null;
@@ -23,12 +21,10 @@ export class SingleLinkedList<T> {
 
     public push(val: T) {
         const newNode = new Node(val);
-        if(!this.length) {
+        if(!(this.tail && this.head)) {
             this.head = newNode;
             this.tail = newNode;
-        }
-
-        if(ValidateUtil.isNotNull<Node<T>>(this.tail)){
+        } else {
             this.tail.next = newNode;
             this.tail = newNode;
         }
@@ -44,7 +40,6 @@ export class SingleLinkedList<T> {
         let newTail = current;
 
         while (current.next) {
-            console.log(current);
             newTail = current;
             current = current.next;
         }
@@ -71,5 +66,20 @@ export class SingleLinkedList<T> {
         this.length--;
 
         return oldFirst
+    }
+
+    public unshift(val: T) {
+        const newNode = new Node(val)
+        if(!(this.tail && this.head)) {
+            this.head = newNode;
+            this.tail = newNode;
+        } else {
+            newNode.next = this.head;
+            this.head = newNode
+        }
+
+        this.length++;
+        return newNode;
+
     }
 };
