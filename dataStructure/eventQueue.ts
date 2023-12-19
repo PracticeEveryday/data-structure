@@ -72,8 +72,7 @@ const eventQueue = new EventQueue();
 
 eventQueue.addEventListener('enqueue', (_event: QueueEvent) => {
     // event가 실행됩니다.
-    console.log('inqueue event')
-    console.dir(_event)
+    // console.dir(_event)
 });
 
 eventQueue.addEventListener('dequeue', () => {

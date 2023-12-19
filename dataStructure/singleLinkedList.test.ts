@@ -84,3 +84,19 @@ describe('단인 연결 리스트 unshift Method', function () {
 
     })
 });
+
+describe('단인 연결 리스트 search Method', function () {
+    const singleList = new SingleLinkedList<number>();
+    singleList.push(1);
+    singleList.push(2);
+    singleList.push(3);
+    singleList.push(4);
+
+    expect(singleList.search(-1)).toBe(null);
+    expect(singleList.search(0)?.value).toBe(1);
+    expect(singleList.search(1)?.value).toBe(2);
+    expect(singleList.search(2)?.value).toBe(3);
+    expect(singleList.search(3)?.value).toBe(4);
+    expect(singleList.search(5)).toBe(null);
+
+});

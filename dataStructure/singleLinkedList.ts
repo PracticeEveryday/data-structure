@@ -80,6 +80,17 @@ export class SingleLinkedList<T> {
 
         this.length++;
         return newNode;
+    }
 
+    public search(idx: number) {
+        if(idx < 0) return null;
+        if(idx >= this.length) return null;
+        if(!(this.tail && this.head)) return null;
+
+        let current = this.head;
+        for (let i = 0 ; i < idx ; i++) {
+            if(current.next) current = current.next;
+        }
+        return current;
     }
 };
