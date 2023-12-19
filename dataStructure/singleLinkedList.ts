@@ -38,10 +38,8 @@ export class SingleLinkedList<T> {
     }
 
     public pop() {
-        // 둘다 값이 없으면 null
         if(!(this.tail && this.head)) return null;
 
-        // 값이 있다면
         let current = this.head;
         let newTail = current;
 
@@ -61,5 +59,17 @@ export class SingleLinkedList<T> {
             this.tail = null;
         }
         return current;
+    }
+
+    public shift() {
+        if(!(this.tail && this.head)) return null;
+
+        const oldFirst = this.head;
+        this.head = this.head.next;
+        oldFirst.next = null;
+
+        this.length--;
+
+        return oldFirst
     }
 };

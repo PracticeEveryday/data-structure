@@ -35,5 +35,23 @@ describe('단인 연결 리스트 pop Method', () => {
         singleList.push(2);
 
         expect(singleList.pop()?.value).toBe(2);
+        expect(singleList.length).toBe(1);
+    })
+});
+
+describe('단인 연결 리스트 shift Method', () => {
+    test('노드가 없을 때는 null을 반환한다.', () => {
+        const singleList = new SingleLinkedList<number>();
+
+        expect(singleList.shift()).toBe(null);
+    })
+
+    test('제일 첫 노드를 반환한다.', () => {
+        const singleList = new SingleLinkedList<number>();
+        singleList.push(1);
+        singleList.push(2);
+
+        expect(singleList.shift()?.value).toBe(1);
+        expect(singleList.length).toBe(1);
     })
 });
