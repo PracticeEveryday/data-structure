@@ -82,7 +82,7 @@ export class SingleLinkedList<T> {
         return newNode;
     }
 
-    public search(idx: number): Node<T> | null {
+    public get(idx: number): Node<T> | null {
         if(idx < 0) return null;
         if(idx >= this.length) return null;
         if(!(this.tail && this.head)) return null;
@@ -92,6 +92,17 @@ export class SingleLinkedList<T> {
             if(current.next) current = current.next;
         }
         return current;
+    }
+
+    public set(idx: number, val: T) {
+        if(idx < 0) return null;
+        if(idx > this.length) return null;
+
+        const current = this.get(idx);
+        if(!current) return null;
+        current.value = val;
+
+        return current.value;
     }
 
     public insert(idx: number, val: T) {

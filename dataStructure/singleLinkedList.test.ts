@@ -85,19 +85,47 @@ describe('단인 연결 리스트 unshift Method', function () {
     })
 });
 
-describe('단인 연결 리스트 search Method', function () {
+describe('단인 연결 리스트 get Method', function () {
     const singleList = new SingleLinkedList<number>();
     singleList.push(1);
     singleList.push(2);
     singleList.push(3);
     singleList.push(4);
 
-    expect(singleList.search(-1)).toBe(null);
-    expect(singleList.search(0)?.value).toBe(1);
-    expect(singleList.search(1)?.value).toBe(2);
-    expect(singleList.search(2)?.value).toBe(3);
-    expect(singleList.search(3)?.value).toBe(4);
-    expect(singleList.search(5)).toBe(null);
+    expect(singleList.get(-1)).toBe(null);
+    expect(singleList.get(0)?.value).toBe(1);
+    expect(singleList.get(1)?.value).toBe(2);
+    expect(singleList.get(2)?.value).toBe(3);
+    expect(singleList.get(3)?.value).toBe(4);
+    expect(singleList.get(5)).toBe(null);
+});
+
+
+describe('단인 연결 리스트 set Method', function () {
+    const singleList = new SingleLinkedList<number>();
+    singleList.push(1);
+    singleList.push(2);
+    singleList.push(3);
+    singleList.push(4);
+
+    expect(singleList.set(-1, 10)).toBe(null);
+    expect(singleList.set(1, 10)).toBe(10);
+    expect(singleList.get(1)?.value).toBe(10);
+    expect(singleList.set(2, 11)).toBe(11);
+    expect(singleList.get(2)?.value).toBe(11);
+    expect(singleList.set(3, 100)).toBe(100);
+    expect(singleList.get(3)?.value).toBe(100);
+
+    expect(singleList.length).toBe(4);
+    expect(singleList.head?.value).toBe(1);
+    expect(singleList.tail?.value).toBe(100);
+
+    // 길이보다 길면 null 반환
+    expect(singleList.set(4, 200)).toBe(null);
+    expect(singleList.get(4)).toBe(null);
+    expect(singleList.set(5, 10)).toBe(null);
+
+
 });
 
 
