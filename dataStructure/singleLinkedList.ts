@@ -93,4 +93,29 @@ export class SingleLinkedList<T> {
         }
         return current;
     }
+
+    public insert(idx: number, val: T) {
+        if(idx < 0) return null;
+        if(idx > this.length) return null;
+
+        const newNode = new Node(val);
+        if(!(this.tail && this.head)) {
+            this.head = newNode;
+            this.tail = newNode;
+        } else {
+            let current = this.head;
+            for (let i = 0 ; i < idx ; i++) {
+                if(current.next) current = current.next;
+            }
+
+            if(idx === this.length) {
+                this.tail = newNode;
+            }
+            newNode.next = current.next;
+            current.next = newNode;
+        }
+
+        this.length++;
+        return newNode;
+    }
 };

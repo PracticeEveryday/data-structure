@@ -99,3 +99,20 @@ describe('단인 연결 리스트 search Method', function () {
     expect(singleList.search(3)?.value).toBe(4);
     expect(singleList.search(5)).toBe(null);
 });
+
+
+describe('단일 연결 리스트 search Method', function () {
+    const singleList = new SingleLinkedList<number>();
+
+
+    expect(singleList.insert(-1, 100)).toBe(null);
+    expect(singleList.insert(0, 1)?.value).toBe(1);
+    expect(singleList.insert(1, 2)?.value).toBe(2);
+    expect(singleList.insert(2, 3)?.value).toBe(3);
+    expect(singleList.insert(3, 4)?.value).toBe(4);
+    expect(singleList.insert(5, 6)).toBe(null);
+    expect(singleList.insert(7, 100)).toBe(null);
+
+    expect(singleList.length).toBe(4)
+
+});
