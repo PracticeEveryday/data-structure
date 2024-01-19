@@ -8,17 +8,20 @@ class QueueEvent extends Event {
 }
 
 class AsyncEventQueue extends EventTarget {
-    public jobs: any[] = [];
     public autostart: boolean = false;
     public running: boolean = false;
-    public pending: number = 0;
-    public concurrency: number = Infinity;
+
     public session: number= 0;
-    public results: any = [];
+    public pending: number = 0;
     public timeout: number = 0;
+    public concurrency: number = Infinity;
+
+    public jobs: any[] = [];
+    public successResults: any[] = [];
+    public errorResultList: any[] = [];
     public timers: any[] = [];
 
-    constructor(options: {autostart?: boolean, concurrency?: number, results?: any, timeout?: number}) {
+    constructor(options: {autostart?: boolean, concurrency?: number, successResults?: any, timeout?: number}) {
         super();
         // 자동으로 시작할 것인가?
         if(options.autostart) this.autostart = options.autostart;
@@ -27,7 +30,7 @@ class AsyncEventQueue extends EventTarget {
         if(options.concurrency) this.concurrency = options.concurrency;
 
         //
-        if(options.results) this.results = options.results;
+        if(options.successResults) this.successResults = options.successResults;
 
         // 제한 시간은 얼마나 줄 것인가.
         if(options.timeout) this.timeout = options.timeout;
@@ -86,9 +89,9 @@ class AsyncEventQueue extends EventTarget {
 
     _createPromiseToEndEvent () {
         return new Promise((resolve, reject) => {
-            this._addCallbackToEndEvent((error, results) => {
+            this._addCallbackToEndEvent((error, successResults) => {
                 if (error) reject(error)
-                else resolve(results)
+                else resolve(successResults)
             })
         })
     }
@@ -96,7 +99,7 @@ class AsyncEventQueue extends EventTarget {
     _addCallbackToEndEvent (cb) {
         const onend = event => {
             this.removeEventListener('end', onend)
-            cb(event.detail.error, this.results)
+            cb(event.detail.error, this.successResults)
         }
         this.addEventListener('end', onend)
     }
@@ -143,8 +146,8 @@ class AsyncEventQueue extends EventTarget {
                     // 에러가 아니고 타임아웃이 아니면 성공 처리한다.
                 } else if(!didTimeout) {
                     // resultIndex가 있고 결과값이 없으면 결과값을 만들어 준다.
-                    if(resultIndex !== null && this.results !== null) {
-                        this.results[resultIndex] = [...result]
+                    if(resultIndex !== null && this.successResults !== null) {
+                        this.successResults[resultIndex] = [...result]
                     }
                     this.dispatchEvent(new QueueEvent('success', {result: [...result], job}))
                 }
@@ -175,10 +178,10 @@ class AsyncEventQueue extends EventTarget {
             this.timers.push(timeoutId);
         }
 
-        // results가 null이 아니면
-        if(this.results !== null) {
-            resultIndex = this.results.length;
-            this.results[resultIndex] = null;
+        // successResults가 null이 아니면
+        if(this.successResults !== null) {
+            resultIndex = this.successResults.length;
+            this.successResults[resultIndex] = null;
         }
 
         // pending 값을 추가하고 start 이벤트를 남긴다.
@@ -200,15 +203,31 @@ class AsyncEventQueue extends EventTarget {
         }
     }
 
-    _errorHandler (evvent) {
-        this.end(evvent.detail.error)
+    _errorHandler (event) {
+        this.end(event.detail.error)
     }
 }
+
+
+
+
+
 
 const queue = new AsyncEventQueue({autostart: false, concurrency: 2, timeout: 10});
 let timeouts = 0;
 
+// --- event 등록
+queue.addEventListener("success", (event: QueueEvent) => {
+    console.log("success")
+})
 
+queue.addEventListener('timeout', (event: QueueEvent) => {
+    timeouts++
+    console.log("timeout");
+    event.detail.next()
+})
+
+//-------test------------
 // cb에는 next 함수가 들어옵니다.
 const willTimeout = (cb) => {
     setTimeout(cb, 10)
@@ -227,15 +246,6 @@ queue.push((cb) => {
 
 queue.push((cb) => {
     cb(undefined, 333)
-})
-
-queue.addEventListener("success", (event: QueueEvent) => {
-    console.log("success")
-})
-
-queue.addEventListener('timeout', (event: QueueEvent) => {
-    timeouts++
-    event.detail.next()
 })
 
 queue.push(willTimeout)
