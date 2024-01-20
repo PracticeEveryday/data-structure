@@ -1,7 +1,7 @@
 class QueueEvent extends Event {
     public detail?: any;
 
-    constructor (name: string, detail: any) {
+    constructor (name: string, detail?: any) {
         super(name);
         this.detail = detail;
     }
@@ -25,6 +25,7 @@ class AsyncEventQueue extends EventTarget {
     public running: boolean = false;
     public isStopOnFailure: boolean = true;
 
+    public timeoutCount:number = 0;
     public session: number= 0;
     public pending: number = 0;
     public timeout: number = 0;
@@ -35,6 +36,9 @@ class AsyncEventQueue extends EventTarget {
     public errorResultList: any[] = [];
     public timers: any[] = [];
 
+
+
+    // TODO: retry count로 실패 시 몇 번 더 시도할 것인지 지정해주기
     constructor(options: {autostart?: boolean, concurrency?: number, timeout?: number, isStopOnFailure?: boolean}) {
         super();
         // 자동으로 시작할 것인가?
@@ -50,38 +54,44 @@ class AsyncEventQueue extends EventTarget {
         if(options.isStopOnFailure === false) this.isStopOnFailure = options.isStopOnFailure;
 
         // 에러 핸들러 등록하기
-        this.addEventListener('error', this._errorHandler);
+        this.addEventListener('error', this.errorHandler);
+        this.addEventListener('timeout', this.timeoutHandler);
+    }
+
+    private timeoutHandler(event: QueueEvent) {
+        this.timeoutCount++;
+        this.errorResultList.push({error: event.type, job: event.detail.job});
+    }
+
+    private errorHandler(event: QueueEvent): void {
+        if (this.isStopOnFailure){
+            this.done(event.detail.error);
+        }
+
+        // 계속 진행할 시 errorList에 결과 넣어주기
+        this.errorResultList.push({error: event.detail.error, job: event.detail.job});
     }
 
 
     public push (...workers: any[]) {
-        const methodResult = this.jobs.push(...workers);
+        this.jobs.push(...workers);
         if (this.autostart) this._start();
-        return methodResult;
+
+        return this.jobs;
     }
 
-    public start(callback?) {
+    public start() {
         if(this.running) throw new Error("이미 시작되었습니다.");
-        let awaiter;
-        if(callback) {
-            this._addCallbackToEndEvent(callback);
-        } else {
-            awaiter = this._createPromiseToEndEvent();
-        }
 
+        let awaiter = this._createPromiseToEndEvent();
         this._start();
+
         return awaiter;
     }
 
-    done (error?: any) {
-        this.session++;
-        this.running = false;
-        this.dispatchEvent(new QueueEvent('end', { error }));
-    }
 
 
-
-    private _createPromiseToEndEvent () {
+    private _createPromiseToEndEvent() {
         return new Promise((resolve, reject) => {
             this._addCallbackToEndEvent((error, successResults) => {
                 if (error) reject(error)
@@ -90,20 +100,28 @@ class AsyncEventQueue extends EventTarget {
         })
     }
 
-    private _addCallbackToEndEvent (cb) {
-        const onend = event => {
+    private _addCallbackToEndEvent(cb) {
+        const onend = (event: QueueEvent) => {
             this.removeEventListener('end', onend);
-            cb(event.detail.error, this.successResults);
+            if(this.isStopOnFailure){
+                cb(event.detail.error, this.successResults);
+            } else {
+                cb(null, {success: this.successResults, fail: this.errorResultList});
+            }
+
         }
         this.addEventListener('end', onend);
     }
 
-    private _start () {
+    private _start() {
+        let timeoutId: any = null;
+        let isTimeout = false;
+        let resultIndex: any = null;
+
         this.running = true;
 
         // 기다리고 있는 개수가 동시에 실행할 개수보다 많으면 return
         if (this.pending >= this.concurrency) return;
-
 
         if (this.jobs.length === 0) {
             if (this.pending === 0) this.done();
@@ -117,55 +135,46 @@ class AsyncEventQueue extends EventTarget {
         const timeout = (job && Object.prototype.hasOwnProperty.call(job, 'timeout') ? job.timeout : this.timeout);
 
 
-        let timeoutId: any = null;
-        let didTimeout = false;
-        let resultIndex: any = null;
 
         const next = (error?, ...result: any[]) => {
-            let once = true;
-            // 처음 시작되는 거라면
-            if(once && this.session === session) {
-                once = false;
-                this.pending--;
+            // session이 다르면 실행하지 않게 하기
+            if(this.session !== session) return;
 
-                // 시간 초과 된 아이디가 있다면
-                if(timeoutId !== null) {
-                    this.timers = this.timers.filter(tId => tId !== timeoutId);
-                    clearTimeout(timeoutId);
+            this.pending--;
+
+            // 타이머가 들어 있다면
+            if(timeoutId !== null) {
+                this.timers = this.timers.filter(tId => tId !== timeoutId);
+                clearTimeout(timeoutId);
+            }
+
+            if(error) {
+                this.dispatchEvent(new QueueEvent('error', {error, job}));
+            }
+
+            if(!error && !isTimeout) {
+                // resultIndex가 있고 결과값이 없으면 결과값을 만들어 준다.
+                if(resultIndex !== null && this.successResults !== null) {
+                    this.successResults[resultIndex] = [...result];
                 }
+                this.dispatchEvent(new QueueEvent('success', {result: [...result], job}))
+            }
 
-                // 에러라면! error 이벤트 발생
-                if(error) {
-                    this.dispatchEvent(new QueueEvent('error', {error, job}));
+            // 남아 있는 것이 없고 jobs의 길이가 0이라면 끝낸다.
+            if(this.pending === 0 && this.jobs.length === 0) {
+                this.done();
 
-                    // 에러가 아니고 타임아웃이 아니면 성공 처리한다.
-                } else if(!didTimeout) {
-                    // resultIndex가 있고 결과값이 없으면 결과값을 만들어 준다.
-                    if(resultIndex !== null && this.successResults !== null) {
-                        this.successResults[resultIndex] = [...result];
-                    }
-                    this.dispatchEvent(new QueueEvent('success', {result: [...result], job}))
-                }
-
-                // 세션이 동일한 상태에서
-                if(this.session === session) {
-                    // 남아 있는 것이 없고 jobs의 길이가 0이라면 끝낸다.
-                    if(this.pending === 0 && this.jobs.length === 0) {
-                        this.done();
-
-                        // 전행중이라면 다시 시작한다.
-                    } else if (this.running) {
-                        this._start();
-                    }
-                }
+                // 전행중이라면 다시 시작한다.
+            } else if (this.running) {
+                this._start();
             }
         }
 
         // 시간초과 값이 있다면
-        if(timeout) {
+        if (timeout) {
             timeoutId = setTimeout(() => {
-                didTimeout = true;
-                this.dispatchEvent(new QueueEvent('timeout', {next, job}));
+                isTimeout = true;
+                this.dispatchEvent(new QueueEvent('timeout', { job }));
 
                 next();
             }, timeout);
@@ -174,7 +183,7 @@ class AsyncEventQueue extends EventTarget {
         }
 
         // successResults가 null이 아니면
-        if(this.successResults !== null) {
+        if (this.successResults !== null) {
             resultIndex = this.successResults.length;
             this.successResults[resultIndex] = null;
         }
@@ -183,9 +192,9 @@ class AsyncEventQueue extends EventTarget {
         this.pending++;
         this.dispatchEvent(new QueueEvent('start', { job }));
 
-        //
+
         job.promise = job(next);
-        if(job.promise !== undefined && typeof job.promise.then === 'function') {
+        if (job.promise !== undefined && typeof job.promise.then === 'function') {
             job.promise.then(function (result) {
                 return next(undefined, result);
             }).catch(function (err) {
@@ -193,32 +202,31 @@ class AsyncEventQueue extends EventTarget {
             })
         }
 
-        if(this.running && this.jobs.length > 0) {
+        if (this.running && this.jobs.length > 0) {
             this._start();
         }
     }
 
-    end (error) {
-        this.clearTimers();
-        this.jobs.length = 0;
-        this.pending = 0;
-        this.done(error);
+
+
+    done(error?: any) {
+        this.session++;
+        this.running = false;
+
+        if(error){
+            this.clearTimers();
+            this.jobs.length = 0;
+            this.pending = 0;
+            if(error) this.dispatchEvent(new QueueEvent('end', { error }));
+        } else {
+            this.dispatchEvent(new QueueEvent('end'));
+        }
     }
 
     clearTimers () {
         this.timers.forEach(timer => clearTimeout(timer));
         this.timers = [];
     }
-
-    // TODO: 플래그를 전달 받아 에러 발생 시 실행을 멈출 것인지, 무시할 것인지 구현하는 로직 추가하기
-    private _errorHandler(event: QueueEvent): void {
-        if(this.isStopOnFailure){
-            this.end(event.detail.error);
-        }
-
-        // 계속 진행할 시 errorList에 결과 넣어주기
-        this.errorResultList.push({error: event.detail.error, job: event.detail.job});
-    }
 }
 
 
@@ -226,45 +234,31 @@ class AsyncEventQueue extends EventTarget {
 
 
 
-const queue = new AsyncEventQueue({autostart: false, concurrency: 2, timeout: 10, isStopOnFailure: false});
+const queue = new AsyncEventQueue({autostart: false, concurrency: 2, timeout: 1000, isStopOnFailure: false});
 let timeouts = 0;
 
 // --- event 등록
 queue.addEventListener("success", (event: QueueEvent) => {
-    console.log("success")
-})
-
-queue.addEventListener('timeout', (event: QueueEvent) => {
-    timeouts++
-    console.log("timeout");
-    event.detail.next()
+    console.log("success");
 })
 
 //-------test------------
 // cb에는 next 함수가 들어옵니다.
 const willTimeout = (cb) => {
-    setTimeout(cb, 10)
-}
-const wontTimeout = (cb) => {
-    setTimeout(cb, 10)
+    setTimeout(cb, 3000);
 }
 
 queue.push((cb) => {
-    cb(undefined, 42)
+    cb(null, 22);
 })
 
 queue.push((cb) => {
-    cb("실패 테스트");
+    cb(null, 22);
 })
 
-queue.push((cb) => {
-    cb(undefined, 22)
-})
+queue.push(willTimeout);
+queue.push(willTimeout);
+queue.push((cb) => cb("에러 테스트", null));
 
-queue.push((cb) => {
-    cb(undefined, 333)
-})
-
-queue.push(willTimeout)
-queue.push(wontTimeout)
-queue.start();
+const hello = queue.start();
+hello.then((value) => console.log("value", value)).catch((error) => console.log("error123", error))
