@@ -263,8 +263,8 @@ queue.push(async(cb) => {
     cb(null, 33);
 })
 
-// queue.push(willTimeout);
-// queue.push(willTimeout);
+queue.push(willTimeout);
+queue.push(willTimeout);
 
 const hello = queue.start();
 hello.then((value) => console.log("value", value)).catch((error) => console.log("error123", error));
