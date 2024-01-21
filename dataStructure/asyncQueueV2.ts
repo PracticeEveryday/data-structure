@@ -1,3 +1,47 @@
+
+function createNextFunc (asyncQueue: AsyncEventQueue, param: {
+    session: number,
+    job: any,
+    resultIndex: number
+    timeoutId?: any,
+    isTimeout?: boolean,
+}) {
+    return (error?, ...result: any[]) => {
+        const { session, timeoutId, job, isTimeout, resultIndex} = param;
+        // session이 다르면 실행하지 않게 하기
+        if(asyncQueue.session !== session) return;
+
+        asyncQueue.pending--;
+
+        // 타이머가 들어 있다면
+        if(timeoutId !== null) {
+            asyncQueue.timers = asyncQueue.timers.filter(tId => tId !== timeoutId);
+            clearTimeout(timeoutId);
+        }
+
+        if(error) {
+            asyncQueue.dispatchEvent(new QueueEvent('error', {error, job}));
+        }
+
+        if(!error && !isTimeout) {
+            // resultIndex가 있고 결과값이 없으면 결과값을 만들어 준다.
+            if(resultIndex !== null && asyncQueue.successResults !== null) {
+                asyncQueue.successResults[resultIndex] = [...result];
+            }
+            asyncQueue.dispatchEvent(new QueueEvent('success', {result: [...result], job}))
+        }
+
+        // 남아 있는 것이 없고 jobs의 길이가 0이라면 끝낸다.
+        if(asyncQueue.pending === 0 && asyncQueue.jobs.length === 0) {
+            asyncQueue.done();
+
+            // 전행중이라면 다시 시작한다.
+        } else if (asyncQueue.running) {
+            asyncQueue._start();
+        }
+    }
+}
+
 class QueueEvent extends Event {
     public detail?: any;
 
@@ -58,6 +102,15 @@ class AsyncEventQueue extends EventTarget {
         this.addEventListener('timeout', this.timeoutHandler);
     }
 
+    // -------- method
+    public push (...workers: any[]) {
+        this.jobs.push(...workers);
+        if (this.autostart) this._start();
+
+        return this.jobs;
+    }
+
+    // ------- handler
     private timeoutHandler(event: QueueEvent) {
         this.timeoutCount++;
         this.errorResultList.push({error: event.type, job: event.detail.job});
@@ -72,35 +125,16 @@ class AsyncEventQueue extends EventTarget {
         this.errorResultList.push({error: event.detail.error, job: event.detail.job});
     }
 
-
-    public push (...workers: any[]) {
-        this.jobs.push(...workers);
-        if (this.autostart) this._start();
-
-        return this.jobs;
-    }
-
-    public start() {
-        if(this.running) throw new Error("이미 시작되었습니다.");
-
-        let awaiter = this._createPromiseToEndEvent();
-        this._start();
-
-        return awaiter;
-    }
-
-
-
-    private _createPromiseToEndEvent() {
+    private createPromiseToEndEvent() {
         return new Promise((resolve, reject) => {
-            this._addCallbackToEndEvent((error, successResults) => {
+            this.addCallbackToEndEvent((error, successResults) => {
                 if (error) reject(error)
                 else resolve(successResults)
             })
         })
     }
 
-    private _addCallbackToEndEvent(cb) {
+    private addCallbackToEndEvent(cb) {
         const onend = (event: QueueEvent) => {
             this.removeEventListener('end', onend);
             if(this.isStopOnFailure){
@@ -108,12 +142,22 @@ class AsyncEventQueue extends EventTarget {
             } else {
                 cb(null, {success: this.successResults, fail: this.errorResultList});
             }
-
         }
         this.addEventListener('end', onend);
     }
 
-    private _start() {
+    // -------- start
+    public start() {
+        if(this.running) throw new Error("이미 시작되었습니다.");
+
+        let awaiter = this.createPromiseToEndEvent();
+        this._start();
+
+        return awaiter;
+    }
+
+
+    public _start() {
         let timeoutId: any = null;
         let isTimeout = false;
         let resultIndex: any = null;
@@ -134,40 +178,11 @@ class AsyncEventQueue extends EventTarget {
         // job과 job에 타임아웃 프로퍼티가 있으면 job의 타임아웃을 따라간다.
         const timeout = (job && Object.prototype.hasOwnProperty.call(job, 'timeout') ? job.timeout : this.timeout);
 
-
-
-        const next = (error?, ...result: any[]) => {
-            // session이 다르면 실행하지 않게 하기
-            if(this.session !== session) return;
-
-            this.pending--;
-
-            // 타이머가 들어 있다면
-            if(timeoutId !== null) {
-                this.timers = this.timers.filter(tId => tId !== timeoutId);
-                clearTimeout(timeoutId);
-            }
-
-            if(error) {
-                this.dispatchEvent(new QueueEvent('error', {error, job}));
-            }
-
-            if(!error && !isTimeout) {
-                // resultIndex가 있고 결과값이 없으면 결과값을 만들어 준다.
-                if(resultIndex !== null && this.successResults !== null) {
-                    this.successResults[resultIndex] = [...result];
-                }
-                this.dispatchEvent(new QueueEvent('success', {result: [...result], job}))
-            }
-
-            // 남아 있는 것이 없고 jobs의 길이가 0이라면 끝낸다.
-            if(this.pending === 0 && this.jobs.length === 0) {
-                this.done();
-
-                // 전행중이라면 다시 시작한다.
-            } else if (this.running) {
-                this._start();
-            }
+        // successResults가 null이 아니면
+        if (this.successResults !== null) {
+            resultIndex = this.successResults.length;
+            // successResults의 마지막에 null 추가해주기
+            this.successResults[resultIndex] = null;
         }
 
         // 시간초과 값이 있다면
@@ -175,24 +190,25 @@ class AsyncEventQueue extends EventTarget {
             timeoutId = setTimeout(() => {
                 isTimeout = true;
                 this.dispatchEvent(new QueueEvent('timeout', { job }));
+                const param = { session, timeoutId, job, isTimeout, resultIndex };
 
+                const next = createNextFunc(this, param);
                 next();
             }, timeout);
 
             this.timers.push(timeoutId);
         }
 
-        // successResults가 null이 아니면
-        if (this.successResults !== null) {
-            resultIndex = this.successResults.length;
-            this.successResults[resultIndex] = null;
-        }
+        const param = { session, timeoutId, job, isTimeout, resultIndex };
+        const next = createNextFunc(this, param);
 
         // pending 값을 추가하고 start 이벤트를 남긴다.
         this.pending++;
         this.dispatchEvent(new QueueEvent('start', { job }));
 
 
+        // return value가 promise이면,job의 Promise 에 promise return 값이 담긴다.
+        // await으로 실행하지 않으니 기다리지 않고, promise 값을 반환하기 떄문이다.
         job.promise = job(next);
         if (job.promise !== undefined && typeof job.promise.then === 'function') {
             job.promise.then(function (result) {
@@ -207,8 +223,7 @@ class AsyncEventQueue extends EventTarget {
         }
     }
 
-
-
+    // ---------- done
     done(error?: any) {
         this.session++;
         this.running = false;
@@ -231,11 +246,7 @@ class AsyncEventQueue extends EventTarget {
 
 
 
-
-
-
 const queue = new AsyncEventQueue({autostart: false, concurrency: 2, timeout: 1000, isStopOnFailure: false});
-let timeouts = 0;
 
 // --- event 등록
 queue.addEventListener("success", (event: QueueEvent) => {
@@ -246,19 +257,14 @@ queue.addEventListener("success", (event: QueueEvent) => {
 // cb에는 next 함수가 들어옵니다.
 const willTimeout = (cb) => {
     setTimeout(cb, 3000);
-}
+};
 
-queue.push((cb) => {
-    cb(null, 22);
+queue.push(async(cb) => {
+    cb(null, 33);
 })
 
-queue.push((cb) => {
-    cb(null, 22);
-})
-
-queue.push(willTimeout);
-queue.push(willTimeout);
-queue.push((cb) => cb("에러 테스트", null));
+// queue.push(willTimeout);
+// queue.push(willTimeout);
 
 const hello = queue.start();
-hello.then((value) => console.log("value", value)).catch((error) => console.log("error123", error))
+hello.then((value) => console.log("value", value)).catch((error) => console.log("error123", error));
