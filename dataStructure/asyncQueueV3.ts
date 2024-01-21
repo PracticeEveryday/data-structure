@@ -89,6 +89,7 @@ export class AsyncQueueV3 extends EventTarget {
 
     private addCallbackToEndEvent(cb) {
         const onend = (event: QueueEvent) => {
+            // end 이벤트 삭제
             this.removeEventListener('end', onend);
             if(this.isStopOnFailure){
                 cb(event.detail?.error, this.successList);
@@ -123,11 +124,13 @@ export class AsyncQueueV3 extends EventTarget {
         // task가 끝나면 pending - 1;
         this.pending--;
 
-        // 할 일이 남아 있다면 start 재귀 호출
-        if(this.taskArr.length > 0) this._start();
+        if(this.pending === 0 && this.taskArr.length === 0) {
+            // end 메서드 호출
+            this.isRun = false;
+            this.dispatchEvent(new QueueEvent("end"));
+        } else if(this.taskArr.length > 0) this._start();
 
-        // end 메서드 호출
-        this.dispatchEvent(new QueueEvent("end"));
+        // 할 일이 남아 있다면 start 재귀 호출
     }
 }
 
