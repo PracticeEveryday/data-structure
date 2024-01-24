@@ -136,31 +136,9 @@ export class AsyncQueueV3 extends EventTarget {
 
 const queue = new AsyncQueueV3({concurrency: 1});
 
-const testTask = (cb) => cb(null, "tttt");
 
-queue.push((cb) => cb(null, "test"));
-queue.push((cb) => cb("fail Test"));
-queue.push(testTask);
 
-queue.push(() => {
-    return new Promise((resolve, reject) => {
-        if(10 % 2 === 0 ){
-            resolve(true);
-        } else {
-            reject(false);
-        }
-    })
-})
 
-queue.push(async () => {
-    return new Promise((resolve, reject) => {
-        if(10 % 2 === 0 ){
-            resolve(true);
-        } else {
-            reject(false);
-        }
-    })
-})
 
 const result = queue.start();
 
